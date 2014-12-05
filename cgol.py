@@ -558,22 +558,26 @@ class GameOfLife(object):
 
 
     @staticmethod
-    def savegrid(game, file=sys.stdout):
+    def savegrid(game, file=None):
         """Save a representation of the game grid to the file specified.
 
+        If file is None, `sys.stdout` is assumed.
         The file should be opened in text mode.
 
         The grid is represented as a series of lines,
         with each line corresponding to each row.
 
         """
+        if file is None:
+            file = sys.stdout
         for row in game._grid:
             print(''.join(str(int(cell)) for cell in row), file=file)
 
     @staticmethod
-    def loadgrid(file=sys.stdin):
+    def loadgrid(file=None):
         """Load and return the grid from the file specified.
 
+        If file is None, `sys.stdin` is assumed.
         The file should be opened in text mode.
 
         The grid is expected to be in the format
@@ -581,6 +585,8 @@ class GameOfLife(object):
         Otherwise, FileFormatError is raised.
 
         """
+        if file is None:
+            file = sys.stdin
         try:
             grid = [list(map(int, line.rstrip())) for line in file]
         except ValueError:
@@ -589,13 +595,16 @@ class GameOfLife(object):
             return grid
 
     @classmethod
-    def save(cls, game, file=sys.stdout):
+    def save(cls, game, file=None):
         """Save the game in the file specified.
 
         The file should be opened in text mode.
+        If file is None, `sys.stdout` is assumed.
         The output format is human-readable.
 
         """
+        if file is None:
+            file = sys.stdout
         print("Conway's Game of Life - Version", __version__, file=file)
         print("Number of rows:", len(game._grid), file=file)
         print("Number of cols:", len(game._grid[0]), file=file)
@@ -604,14 +613,17 @@ class GameOfLife(object):
         print(file=file)
 
     @classmethod
-    def load(cls, file=sys.stdin):
+    def load(cls, file=None):
         """Load and return the game from the file specified.
 
         The file should be opened in text mode.
+        If file is None, `sys.stdin` is assumed.
 
         In case of an invalid file format, FileFormatError is raised.
 
         """
+        if file is None:
+            file = sys.stdin
         try:
             version = next(file)
             if not version.startswith("Conway's Game of Life - Version "):
