@@ -1000,7 +1000,7 @@ def main(args=None):
     interactive prompt.
 
     Example:
-        >>> main('-g 2000 -s 10'.split())
+        >>> main('-g 2000 -t 10'.split())
 
     """
 
