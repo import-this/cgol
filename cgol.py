@@ -293,22 +293,12 @@ del _abstractclassmethod
 ############################# Game of Life Classes #############################
 
 
-class BlindObserver(GameOfLifeObserver, Saveable, Loadable):
+class BlindObserver(GameOfLifeObserver):
     """An observer that does nothing.
 
     Useful when no observer is required.
 
     """
-
-    @classmethod
-    def save(cls, observer, file):
-        print(cls.__name__, file=file)
-
-    @classmethod
-    def load(cls, file):
-        if next(file) != cls.__name__ + '\n':
-            raise FileFormatError("invalid {} format".format(cls.__name__))
-        return cls()
 
     def __repr__(self):
         return self.__class__.__name__ + "()"
