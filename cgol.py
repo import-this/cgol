@@ -1074,6 +1074,8 @@ def main(args=None):
             if not args.nodisplay:
                 window = GameOfLifeWindow(
                     args.dims, args.resolution, args.fullscreen, args.speed)
+                if args.verbose:
+                    print("Observer created.")
                 game.observer = window
 
             game.advance(args.generations or None)      # 0: no limit
@@ -1086,6 +1088,8 @@ def main(args=None):
                 print(game.countlive())
             if args.outfile:
                 GameOfLife.savegrid(game, args.outfile)
+                if args.verbose:
+                    print("Grid saved.")
             if args.save:
                 GameOfLife.save(game, args.save)
                 if args.verbose:
