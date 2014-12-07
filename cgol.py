@@ -493,6 +493,7 @@ class GameOfLife(object):
 
     NEIGHBOR_COUNT = 8
     DEFAULT_DIMS = (72, 128)
+    DEFAULT_OBSERVER = BlindObserver()
 
     def _checkrep(self):
         """Invariant checker. Always returns True."""
@@ -533,7 +534,7 @@ class GameOfLife(object):
             for i, row in enumerate(self._grid)
             for j, cell in enumerate(row))
 
-    def _init(self, grid, observer):
+    def _init(self, grid, observer=DEFAULT_OBSERVER):
         """Initialize a Game of Life object.
 
         This method does not perform any input sanity checks.
@@ -642,7 +643,7 @@ class GameOfLife(object):
                 raise FileFormatError(msg)
 
         self = cls.__new__(cls)
-        self._init(grid, observer)
+        self._init(grid)
         return self
 
 
@@ -663,7 +664,7 @@ class GameOfLife(object):
 
 
     @classmethod
-    def random(cls, dims=DEFAULT_DIMS, observer=BlindObserver()):
+    def random(cls, dims=DEFAULT_DIMS, observer=DEFAULT_OBSERVER):
         """Return a Game of Life object with a random state.
 
         Arguments:
@@ -682,7 +683,7 @@ class GameOfLife(object):
         return self
     
     @classmethod
-    def fromgame(cls, game, observer=BlindObserver()):
+    def fromgame(cls, game, observer=DEFAULT_OBSERVER):
         """Copy constructor.
         
         
@@ -697,7 +698,7 @@ class GameOfLife(object):
         if any(len(row) != rowsize for row in grid):
             raise ValueError("variable row size")
     
-    def __init__(self, seed, observer=BlindObserver(), copy=True):
+    def __init__(self, seed, observer=DEFAULT_OBSERVER, copy=True):
         """Initialize a Game of Life object.
 
         Arguments:
@@ -1040,8 +1041,17 @@ def main(args=None):
             pr.enable()
 
         try:
+            if args.nodisplay:
+                observer = GameOfLife.DEFAULT_OBSERVER
+            else:
+                observer = GameOfLifeWindow(
+                    args.dims, args.resolution, args.fullscreen, args.speed)
+                if args.verbose:
+                    print("Observer created.")
+
             if args.load:
                 game = GameOfLife.load(args.load)
+                game.observer = observer
                 if args.verbose:
                     print("Game loaded.")
                 args.dims = game.dims           # Set args.dims manually.
@@ -1051,22 +1061,15 @@ def main(args=None):
                 grid = GameOfLife.loadgrid(args.infile)
                 if args.verbose:
                     print("Grid loaded.")
-                game = GameOfLife(grid, copy=False)
+                game = GameOfLife(grid, observer, False)
                 args.dims = game.dims           # Set args.dims manually.
                 if args.verbose:
                     print("Game started.")
             else:
-                game = GameOfLife.random(args.dims)
+                game = GameOfLife.random(args.dims, observer)
                 if args.verbose:
                     print("Random game created.")
                     print("Game started.")
-
-            if not args.nodisplay:
-                window = GameOfLifeWindow(
-                    args.dims, args.resolution, args.fullscreen, args.speed)
-                if args.verbose:
-                    print("Observer created.")
-                game.observer = window
 
             game.advance(args.generations or None)      # 0: no limit
             if args.verbose:
