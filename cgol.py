@@ -38,9 +38,10 @@ References:
 Command line usage:
   $python -O cgol.py [-h]
                      [-d ROWSxCOLUMNS] [-g GENERATIONS] [-c]
-                     [-r WIDTHxHEIGHT] [-f] [-t SPEED] [-n]
+                     [-r WIDTHxHEIGHT] [-f] [-u SPEED] [-n]
                      [-i INFILE] [-o OUTFILE]
                      [-s [FILE]] [-l [FILE]]
+                     [-t [FILE]] [-m [FILE]]
                      [-p]
                      [-v] [-V] [-C] [-L]
 
@@ -58,7 +59,7 @@ Display options:
   -r WIDTHxHEIGHT, --resolution WIDTHxHEIGHT
                         window resolution (default: system dependent)
   -f, --fullscreen      run game in fullscreen mode
-  -t SPEED, --speed SPEED
+  -u SPEED, --speed SPEED
                         generation succession speed (FPS; default: 15)
   -n, --nodisplay       do not use a GUI; display options are ignored
 
@@ -73,6 +74,10 @@ Save/Load options:
                         save game to FILE (default: 'cgol.save')
   -l [FILE], --load [FILE]
                         load game from FILE (default: 'cgol.save')
+  -t [FILE], --save-display [FILE]
+                        save display options to FILE (default: 'cgol.save')
+  -m [FILE], --load-display [FILE]
+                        load display options from FILE (default: 'cgol.save')
 
 Profile options:
   -p, --profile         show profiling output
@@ -336,7 +341,6 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         The output format is human-readable.
         
         """
-        print(cls.__name__, file=file)
         print(observer.dims, file=file)
         print(observer.resolution, file=file)
         print(observer.fullscreen, file=file)
@@ -951,7 +955,7 @@ def golparser():
         "-f", "--fullscreen", action="store_true",
         help="run game in fullscreen mode")
     group.add_argument(
-        "-t", "--speed", type=float, default=15,
+        "-u", "--speed", type=float, default=15,
         help="generation succession speed (FPS; default: %(default)s)")
     group.add_argument(
         "-n", "--nodisplay", action="store_true",
@@ -974,7 +978,14 @@ def golparser():
         "-l", "--load", nargs='?', type=argparse.FileType('r'),
         metavar="FILE", const="cgol.save",
         help="load game from %(metavar)s (default: '%(const)s')")
-    # TODO: Add display save/load options
+    group.add_argument(
+        "-t", "--save-display", nargs='?', type=argparse.FileType('a'),
+        metavar="FILE", const="cgol.save",
+        help="save display options to %(metavar)s (default: '%(const)s')")
+    group.add_argument(
+        "-m", "--load-display", nargs='?', type=argparse.FileType('r'),
+        metavar="FILE", const="cgol.save",
+        help="load display options from %(metavar)s (default: '%(const)s')")
 
     group = parser.add_argument_group("Profile options")
     group.add_argument("-p", "--profile", action="store_true",
@@ -1001,7 +1012,7 @@ def main(args=None):
     interactive prompt.
 
     Example:
-        >>> main('-g 2000 -t 10'.split())
+        >>> main('-g 2000 -u 10'.split())
 
     """
 
@@ -1044,10 +1055,15 @@ def main(args=None):
             if args.nodisplay:
                 observer = GameOfLife.DEFAULT_OBSERVER
             else:
-                observer = GameOfLifeWindow(
-                    args.dims, args.resolution, args.fullscreen, args.speed)
-                if args.verbose:
-                    print("Observer created.")
+                if args.load_display:
+                    observer = GameOfLifeWindow.load(args.load_display)
+                    if args.verbose:
+                        print("Observer loaded.")
+                else:
+                    observer = GameOfLifeWindow(
+                        args.dims, args.resolution, args.fullscreen, args.speed)
+                    if args.verbose:
+                        print("Observer created.")
 
             if args.load:
                 game = GameOfLife.load(args.load)
@@ -1079,6 +1095,7 @@ def main(args=None):
                 if args.verbose:
                     print("Live cell count:", end=' ')
                 print(game.countlive())
+
             if args.outfile:
                 GameOfLife.savegrid(game, args.outfile)
                 if args.verbose:
@@ -1087,6 +1104,10 @@ def main(args=None):
                 GameOfLife.save(game, args.save)
                 if args.verbose:
                     print("Game saved.")
+            if args.save_display:
+                GameOfLifeWindow.save(game.observer, args.save_display)
+                if args.verbose:
+                    print("Observer saved.")
         except GameOfLifeError as e:
             print(type(e).__name__ + ":", e.msg, file=sys.stderr)
             return 1
