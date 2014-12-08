@@ -1071,74 +1071,62 @@ def main(args=None):
             pr = profile.Profile()
             pr.enable()
 
-        try:
-            if args.nodisplay:
-                observer = GameOfLife.DEFAULT_OBSERVER
+        if args.nodisplay:
+            observer = GameOfLife.DEFAULT_OBSERVER
+        else:
+            if args.load_display:
+                observer = GameOfLifeWindow.load(args.load_display)
+                if args.verbose:
+                    print("Observer loaded.")
             else:
-                if args.load_display:
-                    observer = GameOfLifeWindow.load(args.load_display)
-                    if args.verbose:
-                        print("Observer loaded.")
-                else:
-                    observer = GameOfLifeWindow(
-                        args.dims, args.resolution, args.fullscreen, args.speed)
-                    if args.verbose:
-                        print("Observer created.")
+                observer = GameOfLifeWindow(
+                    args.dims, args.resolution, args.fullscreen, args.speed)
+                if args.verbose:
+                    print("Observer created.")
 
-            if args.load:
-                game = GameOfLife.load(args.load)
-                game.observer = observer
-                if args.verbose:
-                    print("Game loaded.")
-                args.dims = game.dims           # Set args.dims manually.
-                if args.verbose:
-                    print("Game resumed.")
-            elif args.infile:
-                grid = GameOfLife.loadgrid(args.infile)
-                if args.verbose:
-                    print("Grid loaded.")
-                game = GameOfLife(grid, observer, False)
-                args.dims = game.dims           # Set args.dims manually.
-                if args.verbose:
-                    print("Game started.")
-            else:
-                game = GameOfLife.random(args.dims, observer)
-                if args.verbose:
-                    print("Random game created.")
-                    print("Game started.")
-
-            game.advance(args.generations or None)      # 0: no limit
+        if args.load:
+            game = GameOfLife.load(args.load)
+            game.observer = observer
             if args.verbose:
-                print("Game stopped.")
+                print("Game loaded.")
+            args.dims = game.dims           # Set args.dims manually.
+            if args.verbose:
+                print("Game resumed.")
+        elif args.infile:
+            grid = GameOfLife.loadgrid(args.infile)
+            if args.verbose:
+                print("Grid loaded.")
+            game = GameOfLife(grid, observer, False)
+            args.dims = game.dims           # Set args.dims manually.
+            if args.verbose:
+                print("Game started.")
+        else:
+            game = GameOfLife.random(args.dims, observer)
+            if args.verbose:
+                print("Random game created.")
+                print("Game started.")
 
-            if args.count:
-                if args.verbose:
-                    print("Live cell count:", end=' ')
-                print(game.countlive())
+        game.advance(args.generations or None)      # 0: no limit
+        if args.verbose:
+            print("Game stopped.")
 
-            if args.outfile:
-                GameOfLife.savegrid(game, args.outfile)
-                if args.verbose:
-                    print("Grid saved.")
-            if args.save:
-                GameOfLife.save(game, args.save)
-                if args.verbose:
-                    print("Game saved.")
-            if args.save_display:
-                GameOfLifeWindow.save(game.observer, args.save_display)
-                if args.verbose:
-                    print("Observer saved.")
-        except _CloseButtonInterrupt:
-            raise   # Treat it as a KeyboardInterrupt exception.
-        except GameOfLifeError as e:
-            print(type(e).__name__ + ":", e.msg, file=sys.stderr)
-            return 1
-        except Exception as e:
-            print(type(e).__name__ + ":", e, file=sys.stderr)
-            print("That's all we know. Sorry about that.", file=sys.stderr)
-            # Unix programs generally use code 2 for command
-            # line syntax errors and argparse does the same.
-            return 3
+        if args.count:
+            if args.verbose:
+                print("Live cell count:", end=' ')
+            print(game.countlive())
+
+        if args.outfile:
+            GameOfLife.savegrid(game, args.outfile)
+            if args.verbose:
+                print("Grid saved.")
+        if args.save:
+            GameOfLife.save(game, args.save)
+            if args.verbose:
+                print("Game saved.")
+        if args.save_display:
+            GameOfLifeWindow.save(game.observer, args.save_display)
+            if args.verbose:
+                print("Observer saved.")
 
         if args.profile:
             pr.disable()
@@ -1151,6 +1139,15 @@ def main(args=None):
         if args.verbose:
             print("Game stopped by user.")
         return 0
+    except GameOfLifeError as e:
+        print(type(e).__name__ + ":", e.msg, file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(type(e).__name__ + ":", e, file=sys.stderr)
+        print("That's all we know. Sorry about that.", file=sys.stderr)
+        # Unix programs generally use code 2 for command
+        # line syntax errors and argparse does the same.
+        return 3
 
 if __name__ == "__main__":
     sys.exit(main())
