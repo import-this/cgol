@@ -91,9 +91,9 @@ Misc options:
 Usage examples:
     $ python -O cgol.py
     $ python -O cgol.py -d 72x128
-    $ python -O cgol.py -f -t 30
+    $ python -O cgol.py -f -u 30
     $ python -O cgol.py -r 1280x720
-    $ python -O cgol.py -g 1000 -t 60
+    $ python -O cgol.py -g 1000 -u 60
     $ python -O cgol.py -g 100000 -n -c -v
     $ python -O cgol.py -i grid.txt -o newgrid.txt
     $ python -O cgol.py -r 1280x720 -g 1000 -s=game.save
@@ -911,9 +911,9 @@ def golparser():
         Usage examples:
             $ python -O cgol.py
             $ python -O cgol.py -d 72x128
-            $ python -O cgol.py -f -t 30
+            $ python -O cgol.py -f -u 30
             $ python -O cgol.py -r 1280x720
-            $ python -O cgol.py -g 1000 -t 60
+            $ python -O cgol.py -g 1000 -u 60
             $ python -O cgol.py -g 100000 -n -c -v
             $ python -O cgol.py -i grid.txt -o newgrid.txt
             $ python -O cgol.py -r 1280x720 -g 1000 -s=game.save
