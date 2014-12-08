@@ -5,8 +5,8 @@ For the hasty:
     Run the following command in your terminal:
         $python -O cgol.py
 
-    Click the close button to close the window.
-    Hit Ctrl+C in the command line anytime to exit.
+    Hit Ctrl-C in the command line anytime to exit.
+    Clicking the window close button does the same.
 
 The Game of Life, also known simply as Life, is a cellular automaton
 devised by the British mathematician John Horton Conway in 1970.
@@ -196,6 +196,15 @@ class DisplayError(GameOfLifeError):
     pass
 
 
+class _CloseButtonInterrupt(Exception):
+    """Exception raised when the user clicks on the window close button.
+
+    It is marked as an interrupt since it is not an error.
+
+    """
+    pass
+
+
 ############################### ABCs/Interfaces ################################
 
 
@@ -332,14 +341,13 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
     DEFAULT_RES = _res[len(_res)//2]
     del _res
 
-
     @classmethod
     def save(cls, observer, file):
         """Save the observer to the file specified.
 
         The file should be opened in text mode.
         The output format is human-readable.
-        
+
         """
         print(observer.dims, file=file)
         print(observer.resolution, file=file)
@@ -355,7 +363,7 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         The file should be opened in text mode.
 
         In case of an invalid file format, FileFormatError is raised.
-        
+
         """
         try:
             dims = literal_eval(next(file))
@@ -368,7 +376,6 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         except StopIteration:
             raise FileFormatError("truncated file")
         return cls(dims, resolution, fullscreen, framerate, caption)
-
 
     def __init__(self, dims, resolution=None, fullscreen=False,
                  framerate=15, caption="Conway's Game of Life"):
@@ -411,7 +418,7 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         except pygame.error:
             raise DisplayError("unsupported resolution")
         self._tick = pygame.time.Clock().tick
-        
+
         self._screen.fill(GameOfLifeWindow.WHITE)
         pygame.display.set_caption(caption)
 
@@ -424,9 +431,21 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
             self.__class__.__name__, self.dims, self.resolution,
             self.fullscreen, self.framerate, self.caption)
 
+    def _handle_events(self, get=pygame.event.get, QUIT=pygame.QUIT):
+        """Handle the QUIT event and ignore the rest.
+
+        Remember that handling all events (eventually) is necessary,
+        or the system may decide your program has locked up.
+
+        """
+        # https://www.pygame.org/docs/ref/event.html#pygame.event.pump
+        for event in get():
+            if event.type == QUIT:
+                raise _CloseButtonInterrupt()
+
     def update(self, changes):
         """
-        
+
         """
         # Intensive computations ahead, so cache the lookups.
         white, black = GameOfLifeWindow.WHITE, GameOfLifeWindow.BLACK
@@ -435,6 +454,7 @@ class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         height = self.resolution[1] // self.dims[0]
         fill = self._screen.fill
 
+        self._handle_events()
         rects = []
         for y, x, color in changes:
             rectangle = (x * width, y * height, width, height)
@@ -685,12 +705,12 @@ class GameOfLife(object):
                 for choices in repeat([True, False], nrows)]
         self._init(grid, observer)
         return self
-    
+
     @classmethod
     def fromgame(cls, game, observer=DEFAULT_OBSERVER):
         """Copy constructor.
-        
-        
+
+
         """
         self = cls.__new__(cls)
         self._init([list(map(int, row)) for row in game._grid], observer)
@@ -701,7 +721,7 @@ class GameOfLife(object):
         rowsize = len(grid[0])
         if any(len(row) != rowsize for row in grid):
             raise ValueError("variable row size")
-    
+
     def __init__(self, seed, observer=DEFAULT_OBSERVER, copy=True):
         """Initialize a Game of Life object.
 
@@ -752,7 +772,7 @@ class GameOfLife(object):
         """Return the value of the cell in position pos=(row, col).
 
         Negative coordinates are interpreted as in list indexing.
-        
+
         Example: game[0, 0]
 
         """
@@ -927,8 +947,8 @@ def golparser():
             Run the following command in your terminal:
                 $python -O cgol.py
 
-            Click the close button to close the window.
-            Hit Ctrl+C in the command line anytime to exit.''')
+            Hit Ctrl-C in the command line anytime to exit.
+            Clicking the window close button does the same.''')
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -1022,7 +1042,7 @@ def main(args=None):
         if args.verbose:
             print("Conway's Game of Life " + __version__)
             print("Use '-h' (without quotes) in the command line for help.")
-            print("Hit Ctrl+C anytime to exit.")
+            print("Hit Ctrl-C anytime to exit.")
 
         if args.copyright:
             print(__copyright__)
@@ -1108,6 +1128,8 @@ def main(args=None):
                 GameOfLifeWindow.save(game.observer, args.save_display)
                 if args.verbose:
                     print("Observer saved.")
+        except _CloseButtonInterrupt:
+            raise   # Treat it as a KeyboardInterrupt exception.
         except GameOfLifeError as e:
             print(type(e).__name__ + ":", e.msg, file=sys.stderr)
             return 1
@@ -1125,7 +1147,7 @@ def main(args=None):
             ps.sort_stats('time', 'cumtime').print_stats()
             print(s.getvalue())
             s.close()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, _CloseButtonInterrupt):
         if args.verbose:
             print("Game stopped by user.")
         return 0
