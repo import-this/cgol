@@ -58,7 +58,7 @@ Game options:
 
 Display options:
   -r WIDTHxHEIGHT, --resolution WIDTHxHEIGHT
-                        window resolution (default: system dependent)
+                        window resolution (default: 1280x720)
   -f, --fullscreen      run game in fullscreen mode
   -u SPEED, --speed SPEED
                         generation succession speed (FPS; default: 15)
@@ -126,14 +126,14 @@ __all__ = [
     "DisplayError",
 
     # ABCs/Interfaces
+    "GameOfLifeObserver",
     "Saveable",
     "Loadable",
-    "GameOfLifeObserver",
 
     # Classes
     "BlindObserver",
-    "GameOfLifeWindow",
     "GameOfLife",
+    "GameOfLifeWindow",
 ]
 __author__ = "Vasilis Poulimenos"
 __copyright__ = "Copyright (c) 2014, Vasilis Poulimenos"
@@ -147,7 +147,7 @@ if sys.version_info < (3, 0):
     range = xrange
 
 
-################################## Exceptions ##################################
+################################## Exceptions #################################
 
 
 class GameOfLifeError(Exception):
@@ -195,7 +195,7 @@ class _CloseButtonInterrupt(Exception):
     pass
 
 
-############################### ABCs/Interfaces ################################
+############################### ABCs/Interfaces ###############################
 
 
 def _add_metaclass(metaclass):
@@ -218,6 +218,24 @@ def _add_metaclass(metaclass):
                 orig_vars.pop(slots_var)
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
     return wrapper
+
+
+@_add_metaclass(ABCMeta)
+class GameOfLifeObserver(object):
+    """An observer abstract base class for Game of Life.
+
+    GameOfLife expects an object with this interface.
+
+    """
+    @abstractmethod
+    def update(self, changes):
+        """Perform the changes specified.
+
+        The changes should be provided as a
+        list of tuples of the form (i, j, color).
+
+        """
+        raise NotImplementedError
 
 
 class _abstractclassmethod(classmethod):
@@ -272,29 +290,11 @@ class Loadable(object):
         raise NotImplementedError
 
 
-@_add_metaclass(ABCMeta)
-class GameOfLifeObserver(object):
-    """An observer abstract base class for Game of Life.
-
-    GameOfLife expects an object with this interface.
-
-    """
-    @abstractmethod
-    def update(self, changes):
-        """Perform the changes specified.
-
-        The changes should be provided as a
-        list of tuples of the form (i, j, color).
-
-        """
-        raise NotImplementedError
-
-
 del _add_metaclass
 del _abstractclassmethod
 
 
-############################# Game of Life Classes #############################
+############################## Game of Life Logic #############################
 
 
 class BlindObserver(GameOfLifeObserver):
@@ -309,161 +309,6 @@ class BlindObserver(GameOfLifeObserver):
 
     def update(self, changes):
         pass
-
-
-try:
-    import pygame
-except ImportError:
-    print("You need to have Pygame installed to run the GUI.", file=sys.stderr)
-else:
-    # Center the game window.
-    # http://www.pygame.org/wiki/FrequentlyAskedQuestions
-    os.environ['SDL_VIDEO_CENTERED'] = '1'
-
-    pygame.init()
-
-    class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
-        """The Game of Life window.
-
-        Handles the game graphics and the interaction with the user.
-
-        """
-
-        WHITE = pygame.Color(255, 255, 255)
-        BLACK = pygame.Color(0, 0, 0)
-
-        _PYGAME_FLAGS = pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF
-
-        _info = pygame.display.Info()
-        CURRENT_RES = (_info.current_w, _info.current_h)
-        del _info
-
-        _res = pygame.display.list_modes(0, _PYGAME_FLAGS)
-        DEFAULT_RES = _res[len(_res)//2]
-        del _res
-
-        @classmethod
-        def save(cls, observer, file):
-            """Save the observer to the file specified.
-
-            The file should be opened in text mode.
-            The output format is human-readable.
-
-            """
-            print(observer.dims, file=file)
-            print(observer.resolution, file=file)
-            print(observer.fullscreen, file=file)
-            print(observer.framerate, file=file)
-            print(observer.caption, file=file)
-            print(file=file)
-
-        @classmethod
-        def load(cls, file):
-            """Load and return the observer from the file specified.
-
-            The file should be opened in text mode.
-
-            In case of an invalid file format, FileFormatError is raised.
-
-            """
-            try:
-                dims = literal_eval(next(file))
-                resolution = literal_eval(next(file))
-                fullscreen = literal_eval(next(file))
-                framerate = int(next(file))
-                caption = next(file)
-            except (ValueError, SyntaxError):
-                raise FileFormatError("invalid {} format".format(cls.__name__))
-            except StopIteration:
-                raise FileFormatError("truncated file")
-            return cls(dims, resolution, fullscreen, framerate, caption)
-
-        def __init__(self, dims, resolution=None, fullscreen=False,
-                     framerate=15, caption="Conway's Game of Life"):
-            """Initialize a new window.
-
-            Arguments:
-                dims -- grid width and height
-                resolution -- window width and height
-                    If None, then:
-                        it becomes CURRENT_RES if 'fullscreen' is true
-                        or DEFAULT_RES, otherwise.
-                fullscreen -- run in fullscreen mode
-                framerate -- generation succesion rate in FPS.
-                    If 'framerate' is zero or negative, then the game will
-                    compute the generations as fast as possible (depended
-                    on computer speed). If it is too large, then the game
-                    will not be able to compute the generations that fast
-                    and will simply run at maximum speed.
-                caption -- window title
-
-            """
-            # Restart the display for each run to avoid hangs.
-            pygame.display.init()
-
-            if resolution is None:
-                if fullscreen:
-                    resolution = GameOfLifeWindow.CURRENT_RES
-                else:
-                    resolution = GameOfLifeWindow.DEFAULT_RES
-
-            self.dims = dims
-            self.resolution = resolution
-            self.fullscreen = fullscreen
-            self.framerate = max(int(framerate), 0)
-            self.caption = caption
-
-            flags = GameOfLifeWindow._PYGAME_FLAGS if fullscreen else 0
-            try:
-                self._screen = pygame.display.set_mode(resolution, flags)
-            except pygame.error:
-                raise DisplayError("unsupported resolution")
-            self._tick = pygame.time.Clock().tick
-
-            self._screen.fill(GameOfLifeWindow.WHITE)
-            pygame.display.set_caption(caption)
-
-        def __del__(self):
-            """ """
-            pygame.display.quit()
-
-        def __repr__(self):
-            return "{}({}, {}, {}, {}, {})".format(
-                self.__class__.__name__, self.dims, self.resolution,
-                self.fullscreen, self.framerate, self.caption)
-
-        def _handle_events(self, get=pygame.event.get, QUIT=pygame.QUIT):
-            """Handle the QUIT event and ignore the rest.
-
-            Remember that handling all events (eventually) is necessary,
-            or the system may decide your program has locked up.
-
-            """
-            # https://www.pygame.org/docs/ref/event.html#pygame.event.pump
-            for event in get():
-                if event.type == QUIT:
-                    raise _CloseButtonInterrupt()
-
-        def update(self, changes):
-            """
-
-            """
-            # Intensive computations ahead, so cache the lookups.
-            white, black = GameOfLifeWindow.WHITE, GameOfLifeWindow.BLACK
-            # Notice the inversion of indices.
-            width = self.resolution[0] // self.dims[1]
-            height = self.resolution[1] // self.dims[0]
-            fill = self._screen.fill
-
-            self._handle_events()
-            rects = []
-            for y, x, color in changes:
-                rectangle = (x * width, y * height, width, height)
-                # white == 0, black == 1
-                fill(black if color else white, rectangle)
-                rects.append(rectangle)
-            pygame.display.update(rects)
-            self._tick(self.framerate)
 
 
 class GameOfLife(object):
@@ -572,7 +417,6 @@ class GameOfLife(object):
         self._init_observer()
         assert self._checkrep()
 
-
     @staticmethod
     def savegrid(game, file=None):
         """Save a representation of the game grid to the file specified.
@@ -671,23 +515,6 @@ class GameOfLife(object):
         self._init(grid)
         return self
 
-
-    @property
-    def observer(self):
-        """The observer for this game."""
-        return self._observer
-
-    @observer.setter
-    def observer(self, observer):
-        self._observer = observer
-        self._init_observer()
-
-    @property
-    def dims(self):
-        """Return a tuple with the grid dimensions ((nrows, ncols))."""
-        return (len(self._grid), len(self._grid[0]))
-
-
     @classmethod
     def random(cls, dims=DEFAULT_DIMS, observer=DEFAULT_OBSERVER):
         """Return a Game of Life object with a random state.
@@ -711,6 +538,8 @@ class GameOfLife(object):
     def fromgame(cls, game, observer=DEFAULT_OBSERVER):
         """Copy constructor.
 
+        The new game will have the observer specified or the default one
+        (i.e. the observer of the original game is not reused or copied).
 
         """
         self = cls.__new__(cls)
@@ -797,7 +626,6 @@ class GameOfLife(object):
         size += sum(sizeof(row) for row in self._grid)
         size += sum(sizeof(n) for n in self._neighbors)
         return size
-
 
     def _advance(self, reps, enumerate=enumerate, divmod=divmod, bool=bool,
                  zip=zip, chain_from_iterable=itertools.chain.from_iterable):
@@ -893,8 +721,181 @@ class GameOfLife(object):
         """Return True if there are any live cells."""
         return any(itertools.chain.from_iterable(self._grid))
 
+    @property
+    def observer(self):
+        """The observer for this game."""
+        return self._observer
 
-def golparser():
+    @observer.setter
+    def observer(self, observer):
+        self._observer = observer
+        self._init_observer()
+
+    @property
+    def dims(self):
+        """Return a tuple with the grid dimensions ((nrows, ncols))."""
+        return (len(self._grid), len(self._grid[0]))
+
+
+############################### Game of Life GUI ##############################
+
+
+try:
+    import pygame
+except ImportError:
+    print("You need to have Pygame installed to run the GUI.", file=sys.stderr)
+else:
+    # Center the game window.
+    # http://www.pygame.org/wiki/FrequentlyAskedQuestions
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
+
+    pygame.init()
+
+    class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
+        """The Game of Life window.
+
+        Handles the game graphics and the interaction with the user.
+
+        """
+
+        WHITE = pygame.Color(255, 255, 255)
+        BLACK = pygame.Color(0, 0, 0)
+
+        _PYGAME_FLAGS = pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF
+
+        _info = pygame.display.Info()
+        CURRENT_RES = (_info.current_w, _info.current_h)
+        del _info
+
+        _res = pygame.display.list_modes(0, _PYGAME_FLAGS)
+        DEFAULT_RES = _res[len(_res)//2]
+        del _res
+
+        @classmethod
+        def save(cls, window, file):
+            """Save the window configuration to the file specified.
+
+            The file should be opened in text mode.
+            The output format is human-readable.
+
+            """
+            print(window.dims, file=file)
+            print(window.resolution, file=file)
+            print(window.fullscreen, file=file)
+            print(window.framerate, file=file)
+            print(window.caption, file=file)
+            print(file=file)
+
+        @classmethod
+        def load(cls, file):
+            """Load the window configuration from the file specified.
+
+            Return a new configured window.
+
+            The file should be opened in text mode.
+            In case of an invalid file format, FileFormatError is raised.
+
+            """
+            try:
+                dims = literal_eval(next(file))
+                resolution = literal_eval(next(file))
+                fullscreen = literal_eval(next(file))
+                framerate = int(next(file))
+                caption = next(file)
+            except (ValueError, SyntaxError):
+                raise FileFormatError("invalid {} format".format(cls.__name__))
+            except StopIteration:
+                raise FileFormatError("truncated file")
+            return cls(dims, resolution, fullscreen, framerate, caption)
+
+        def __init__(self, dims, resolution=None, fullscreen=False,
+                     framerate=15, caption="Conway's Game of Life"):
+            """Initialize a new window.
+
+            Arguments:
+                dims -- grid width and height
+                resolution -- window width and height
+                    If None, then:
+                        it becomes CURRENT_RES if 'fullscreen' is true
+                        or DEFAULT_RES, otherwise.
+                fullscreen -- run in fullscreen mode
+                framerate -- generation succesion rate in FPS.
+                    If 'framerate' is zero or negative, then the game will
+                    compute the generations as fast as possible (depended
+                    on computer speed). If it is too large, then the game
+                    will not be able to compute the generations that fast
+                    and will simply run at maximum speed.
+                caption -- window title
+
+            """
+            # Restart the display for each run to avoid hangs.
+            pygame.display.init()
+
+            if resolution is None:
+                if fullscreen:
+                    resolution = GameOfLifeWindow.CURRENT_RES
+                else:
+                    resolution = GameOfLifeWindow.DEFAULT_RES
+
+            self.dims = dims
+            self.resolution = resolution
+            self.fullscreen = fullscreen
+            self.framerate = max(int(framerate), 0)
+            self.caption = caption
+
+            flags = GameOfLifeWindow._PYGAME_FLAGS if fullscreen else 0
+            try:
+                self._screen = pygame.display.set_mode(resolution, flags)
+            except pygame.error:
+                raise DisplayError("unsupported resolution")
+            self._tick = pygame.time.Clock().tick
+
+            self._screen.fill(GameOfLifeWindow.WHITE)
+            pygame.display.set_caption(caption)
+
+        def __del__(self):
+            """ """
+            pygame.display.quit()
+
+        def __repr__(self):
+            return "{}({}, {}, {}, {}, {})".format(
+                self.__class__.__name__, self.dims, self.resolution,
+                self.fullscreen, self.framerate, self.caption)
+
+        def _handle_events(self, get=pygame.event.get, QUIT=pygame.QUIT):
+            """Handle the QUIT event and ignore the rest.
+
+            Remember that handling all events (eventually) is necessary,
+            or the system may decide your program has locked up.
+
+            """
+            # https://www.pygame.org/docs/ref/event.html#pygame.event.pump
+            for event in get():
+                if event.type == QUIT:
+                    raise _CloseButtonInterrupt()
+
+        def update(self, changes):
+            """Perform the changes specified and display them to the screen."""
+
+            # Intensive computations ahead, so cache the lookups.
+            white, black = GameOfLifeWindow.WHITE, GameOfLifeWindow.BLACK
+            # Notice the inversion of indices.
+            width = self.resolution[0] // self.dims[1]
+            height = self.resolution[1] // self.dims[0]
+            fill = self._screen.fill
+
+            self._handle_events()
+            rects = []
+            for y, x, color in changes:
+                rectangle = (x * width, y * height, width, height)
+                # white == 0, black == 1
+                fill(black if color else white, rectangle)
+                rects.append(rectangle)
+            pygame.display.update(rects)
+            self._tick(self.framerate)
+
+
+def argparser():
     """Return a new argument parser for this module.
 
     Argument handling via the magic of the argparse module.
@@ -928,6 +929,15 @@ def golparser():
         Dims = namedtuple('Dims', ['width', 'height'])
         return Dims(width, height)
 
+    description = textwrap.dedent('''\
+        Conway's Game of Life in Pygame
+
+        For the hasty:
+            Run the following command in your terminal:
+                $python -O cgol.py
+
+            Hit Ctrl-C in the command line anytime to exit.
+            Clicking the window close button does the same.''')
     epilog = textwrap.dedent('''\
         Usage examples:
             $ python -O cgol.py
@@ -941,24 +951,17 @@ def golparser():
             $ python -O cgol.py -d 72x128 -g 250 -c -r 1280x720 -o=grid.txt
 
         Enjoy!''')
-    description = textwrap.dedent('''\
-        Conway's Game of Life in Pygame
-
-        For the hasty:
-            Run the following command in your terminal:
-                $python -O cgol.py
-
-            Hit Ctrl-C in the command line anytime to exit.
-            Clicking the window close button does the same.''')
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         description=description, epilog=epilog)
 
+    defaultdims = GameOfLife.DEFAULT_DIMS
+
     group = parser.add_argument_group("Game options")
     group.add_argument(
         "-d", "--dims", type=dims, metavar="ROWSxCOLUMNS",
-        default="{}x{}".format(*GameOfLife.DEFAULT_DIMS),
+        default="{}x{}".format(*defaultdims),
         help="grid dimensions (default: %(default)s)")
     group.add_argument(
         "-g", "--generations", type=int, default=0,
@@ -970,7 +973,7 @@ def golparser():
     group = parser.add_argument_group("Display options")
     group.add_argument(
         "-r", "--resolution", type=dims, metavar="WIDTHxHEIGHT",
-        default="{}x{}".format(*GameOfLifeWindow.DEFAULT_RES),
+        default="{}x{}".format(defaultdims[1] * 10, defaultdims[0] * 10),
         help="window resolution (default: %(default)s)")
     group.add_argument(
         "-f", "--fullscreen", action="store_true",
@@ -1038,7 +1041,7 @@ def main(args=None):
     """
 
     try:
-        args = golparser().parse_args(args)
+        args = argparser().parse_args(args)
 
         if args.verbose:
             print("Conway's Game of Life " + __version__)
@@ -1078,12 +1081,12 @@ def main(args=None):
             if args.load_display:
                 observer = GameOfLifeWindow.load(args.load_display)
                 if args.verbose:
-                    print("Observer loaded.")
+                    print("Display loaded.")
             else:
                 observer = GameOfLifeWindow(
                     args.dims, args.resolution, args.fullscreen, args.speed)
                 if args.verbose:
-                    print("Observer created.")
+                    print("Display created.")
 
         if args.load:
             game = GameOfLife.load(args.load)
@@ -1127,7 +1130,7 @@ def main(args=None):
         if args.save_display:
             GameOfLifeWindow.save(game.observer, args.save_display)
             if args.verbose:
-                print("Observer saved.")
+                print("Display options saved.")
 
         if args.profile:
             pr.disable()
