@@ -743,7 +743,7 @@ class GameOfLife(object):
 try:
     import pygame
 except ImportError:
-    print("You need to have Pygame installed to run the GUI.", file=sys.stderr)
+    print("Pygame not found. You won't be able to run a GUI.", file=sys.stderr)
 else:
     # Center the game window.
     # http://www.pygame.org/wiki/FrequentlyAskedQuestions
@@ -751,10 +751,20 @@ else:
 
     pygame.init()
 
+    # Only allow the QUIT event on the event queue for fast and simple checks.
+    pygame.event.set_allowed(None)
+    pygame.event.set_allowed(pygame.QUIT)
+
     class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
         """The Game of Life window.
 
-        Handles the game graphics and the interaction with the user.
+        Handles the game graphics and interaction with the user.
+
+        Notice that, due to a restriction of Pygame, only one window can be
+        open at a time (this is actually a restriction of its backend, SDL,
+        and not of Pygame itself). If two instances of this class are alive
+        simultaneously, they will use the same window (which is obviously
+        not what you want).
 
         """
 
@@ -808,6 +818,11 @@ else:
                 raise FileFormatError("truncated file")
             return cls(dims, resolution, fullscreen, framerate, caption)
 
+        @property
+        def _flags(self):
+            """The display flags."""
+            return GameOfLifeWindow._PYGAME_FLAGS if self.fullscreen else 0
+
         def __init__(self, dims, resolution=None, fullscreen=False,
                      framerate=15, caption="Conway's Game of Life"):
             """Initialize a new window.
@@ -828,7 +843,7 @@ else:
                 caption -- window title
 
             """
-            # Restart the display for each run to avoid hangs.
+            # pygame.display.quit may have been called from an old instance.
             pygame.display.init()
 
             if resolution is None:
@@ -842,40 +857,60 @@ else:
             self.fullscreen = fullscreen
             self.framerate = max(int(framerate), 0)
             self.caption = caption
-
-            flags = GameOfLifeWindow._PYGAME_FLAGS if fullscreen else 0
-            try:
-                self._screen = pygame.display.set_mode(resolution, flags)
-            except pygame.error:
-                raise DisplayError("unsupported resolution")
+            self._screen = None
             self._tick = pygame.time.Clock().tick
 
-            self._screen.fill(GameOfLifeWindow.WHITE)
+            if not pygame.display.mode_ok(self.resolution, self._flags):
+                raise DisplayError("unsupported resolution")
             pygame.display.set_caption(caption)
 
         def __del__(self):
-            """ """
-            pygame.display.quit()
+            pygame.display.quit()       # in case self.hide() was not called.
 
         def __repr__(self):
             return "{}({}, {}, {}, {}, {})".format(
                 self.__class__.__name__, self.dims, self.resolution,
                 self.fullscreen, self.framerate, self.caption)
 
-        def _handle_events(self, get=pygame.event.get, QUIT=pygame.QUIT):
-            """Handle the QUIT event and ignore the rest.
+        def show(self):
+            """Show the window.
+
+            It is harmless to call this more than once.
+            Repeated calls have no effect.
+
+            """
+            pygame.display.init()
+            try:
+                self._screen = pygame.display.set_mode(
+                    self.resolution, self._flags)
+            except pygame.error:
+                raise AssertionError("unsupported resolution passed mode_ok")
+
+        def hide(self):
+            """Hide the window.
+
+            It is harmless to call this more than once.
+            Repeated calls have no effect.
+
+            """
+            pygame.display.quit()
+            self._screen = None
+
+        def _handle_events(self, poll=pygame.event.poll, QUIT=pygame.QUIT):
+            """Handle the QUIT event (the rest are blocked).
 
             Remember that handling all events (eventually) is necessary,
             or the system may decide your program has locked up.
+            https://www.pygame.org/docs/ref/event.html#pygame.event.pump
 
             """
-            # https://www.pygame.org/docs/ref/event.html#pygame.event.pump
-            for event in get():
-                if event.type == QUIT:
-                    raise _CloseButtonInterrupt()
+            if poll().type == QUIT:     # Only QUIT events are allowed.
+                raise _CloseButtonInterrupt()
 
         def update(self, changes):
             """Perform the changes specified and display them to the screen."""
+            if self._screen is None:
+                return
 
             # Intensive computations ahead, so cache the lookups.
             white, black = GameOfLifeWindow.WHITE, GameOfLifeWindow.BLACK
@@ -1087,6 +1122,7 @@ def main(args=None):
                     args.dims, args.resolution, args.fullscreen, args.speed)
                 if args.verbose:
                     print("Display created.")
+            observer.show()
 
         if args.load:
             game = GameOfLife.load(args.load)
