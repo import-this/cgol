@@ -222,11 +222,7 @@ def _add_metaclass(metaclass):
 
 @_add_metaclass(ABCMeta)
 class GameOfLifeObserver(object):
-    """An observer abstract base class for Game of Life.
-
-    GameOfLife expects an object with this interface.
-
-    """
+    """An observer abstract base class for Game of Life."""
     @abstractmethod
     def update(self, changes):
         """Perform the changes specified.
@@ -235,6 +231,19 @@ class GameOfLifeObserver(object):
         list of tuples of the form (i, j, color).
 
         """
+        raise NotImplementedError
+
+
+class GameOfLifeWindowObserver(GameOfLifeObserver):
+    """An observer abstract base class with a window for Game of Life."""
+    @abstractmethod
+    def show(self):
+        """Show the window."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def hide(self):
+        """Hide the window."""
         raise NotImplementedError
 
 
@@ -755,7 +764,7 @@ else:
     pygame.event.set_allowed(None)
     pygame.event.set_allowed(pygame.QUIT)
 
-    class GameOfLifeWindow(GameOfLifeObserver, Saveable, Loadable):
+    class GameOfLifeWindow(GameOfLifeWindowObserver, Saveable, Loadable):
         """The Game of Life window.
 
         Handles the game graphics and interaction with the user.
