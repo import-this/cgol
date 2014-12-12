@@ -159,7 +159,7 @@ class GameOfLifeError(Exception):
     """
 
     def __init__(self, msg):
-        Exception.__init__(self, msg)
+        super(GameOfLifeError, self).__init__(msg)
         self.msg = msg
 
     def __str__(self):
