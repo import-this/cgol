@@ -495,7 +495,7 @@ class GameOfLife(object):
             file = sys.stdin
         try:
             version = next(file)
-            if not version.startswith("Conway's Game of Life - Version "):
+            if version != "Conway's Game of Life - Version " + __version__:
                 raise FileFormatError("invalid version format")
 
             try:
