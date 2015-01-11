@@ -478,7 +478,7 @@ class GameOfLife(object):
         print("Number of rows:", len(game._grid), file=file)
         print("Number of cols:", len(game._grid[0]), file=file)
         print(file=file)
-        GameOfLife.savegrid(game, file)
+        cls.savegrid(game, file)
         print(file=file)
 
     @classmethod
